@@ -21,11 +21,26 @@ const getDefaultCropAreaSize = () => {
     return 320;
   }
 
-  if (window.innerWidth < 640) {
-    return Math.max(Math.min(window.innerWidth - 32, 360), 220);
+  const viewportWidth = Math.floor(window.visualViewport?.width || window.innerWidth);
+  const viewportHeight = Math.floor(window.visualViewport?.height || window.innerHeight);
+
+  if (viewportWidth < 640) {
+    const widthLimitedSize = viewportWidth - 40;
+    const heightLimitedSize = viewportHeight
+      ? Math.floor(viewportHeight - 380)
+      : widthLimitedSize;
+
+    return Math.max(Math.min(widthLimitedSize, heightLimitedSize, 360), 190);
   }
 
-  if (window.innerWidth < 1024) {
+  if (viewportWidth < 1024 && viewportHeight && viewportHeight < 520) {
+    const widthLimitedSize = viewportWidth - 48;
+    const heightLimitedSize = Math.floor(viewportHeight - 230);
+
+    return Math.max(Math.min(widthLimitedSize, heightLimitedSize, 320), 160);
+  }
+
+  if (viewportWidth < 1024) {
     return 360;
   }
 
@@ -85,9 +100,14 @@ const ProductImageCropModal = ({
       setCropAreaSize(getDefaultCropAreaSize());
     };
 
+    const visualViewport = window.visualViewport;
+
     window.addEventListener("resize", handleResize);
+    visualViewport?.addEventListener("resize", handleResize);
+
     return () => {
       window.removeEventListener("resize", handleResize);
+      visualViewport?.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -240,22 +260,22 @@ const ProductImageCropModal = ({
     <div className="product-crop-modal fixed inset-0 z-[99999] bg-black/80">
       <div className="product-crop-shell flex min-h-screen w-full items-stretch justify-center sm:items-center sm:p-4 lg:p-6">
         <div className="product-crop-panel flex min-h-screen w-full flex-col overflow-hidden bg-[#18243a] text-[#d0d2d6] sm:min-h-0 sm:max-h-[92vh] sm:max-w-[720px] sm:rounded-[28px] sm:border sm:border-slate-700 sm:shadow-2xl">
-          <div className="product-crop-header sticky top-0 z-20 border-b border-slate-700 bg-[#18243a]/95 px-5 py-4 backdrop-blur sm:px-4">
+          <div className="product-crop-header sticky top-0 z-20 border-b border-slate-700 bg-[#18243a]/95 px-4 py-3 backdrop-blur sm:px-4 sm:py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:text-[11px] sm:tracking-[0.24em]">
                   Product Image Crop
                 </p>
-                <h2 className="mt-1 text-xl font-semibold text-white sm:text-lg">
+                <h2 className="product-crop-title mt-1 text-base font-semibold text-white sm:text-lg">
                   Adjust the square frame before upload
                 </h2>
-                <p className="mt-2 text-sm text-slate-400 sm:text-xs">
+                <p className="product-crop-subtitle mt-1.5 text-xs text-slate-400 sm:mt-2 sm:text-xs">
                   Crop to a square or skip and keep the original image as-is.
                 </p>
               </div>
 
               <button
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#243554] text-slate-200 transition hover:bg-[#2d4366]"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#243554] text-slate-200 transition hover:bg-[#2d4366] sm:h-10 sm:w-10"
                 onClick={onCancel}
                 type="button"
               >
@@ -264,10 +284,10 @@ const ProductImageCropModal = ({
             </div>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_260px]">
-            <div className="min-h-0 border-b border-slate-700 p-5 lg:border-b-0 lg:border-r lg:p-4 sm:px-4 sm:py-4">
+          <div className="product-crop-body grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="product-crop-editor min-h-0 border-b border-slate-700 p-4 sm:px-4 sm:py-4 lg:border-b-0 lg:border-r lg:p-4">
               <div
-                className="relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-[24px] border border-slate-700"
+                className="product-crop-canvas relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 sm:rounded-[24px]"
                 style={{
                   aspectRatio: "1 / 1",
                   maxWidth: `min(100%, ${cropAreaSize}px)`,
@@ -310,7 +330,7 @@ const ProductImageCropModal = ({
                 />
               </div>
 
-              <div className="mt-5 rounded-2xl border border-slate-700 bg-[#101a2d] p-4 sm:mt-4 sm:p-3">
+              <div className="product-crop-zoom mt-3 rounded-xl border border-slate-700 bg-[#101a2d] p-3 sm:mt-4 sm:rounded-2xl sm:p-3">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold text-white">Zoom</span>
                   <span className="text-xs font-medium text-slate-400">
@@ -318,9 +338,9 @@ const ProductImageCropModal = ({
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center gap-3 sm:gap-2">
+                <div className="mt-2.5 flex items-center gap-2 sm:mt-3 sm:gap-2">
                   <button
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#1f2d44] transition hover:bg-[#293b5d]"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#1f2d44] transition hover:bg-[#293b5d] sm:h-11 sm:w-11"
                     onClick={() =>
                       setZoom((currentZoom) =>
                         clampValue(currentZoom - 0.1, minZoom, MAX_ZOOM),
@@ -332,7 +352,7 @@ const ProductImageCropModal = ({
                   </button>
                   <input
                     aria-label="Zoom image"
-                    className="product-crop-range h-11 w-full"
+                    className="product-crop-range h-10 w-full sm:h-11"
                     max={MAX_ZOOM}
                     min={minZoom}
                     onChange={(event) =>
@@ -343,7 +363,7 @@ const ProductImageCropModal = ({
                     value={zoom}
                   />
                   <button
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#1f2d44] transition hover:bg-[#293b5d]"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-600 bg-[#1f2d44] transition hover:bg-[#293b5d] sm:h-11 sm:w-11"
                     onClick={() =>
                       setZoom((currentZoom) =>
                         clampValue(currentZoom + 0.1, minZoom, MAX_ZOOM),
@@ -357,16 +377,16 @@ const ProductImageCropModal = ({
               </div>
             </div>
 
-            <div className="min-h-0 space-y-4 overflow-y-auto p-5 pb-24 lg:p-4 lg:pb-4 sm:px-4 sm:pt-4">
-              <div className="rounded-2xl border border-slate-700 bg-[#101a2d] p-4">
-                <div className="flex items-start justify-between gap-3">
+            <div className="product-crop-side min-h-0 space-y-3 overflow-y-auto p-4 pb-5 sm:space-y-4 sm:px-4 sm:pb-24 sm:pt-4 lg:p-4 lg:pb-4">
+              <div className="rounded-xl border border-slate-700 bg-[#101a2d] p-3 sm:rounded-2xl sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-white">Live Preview</p>
                     <p className="mt-1 text-xs text-slate-400">
                       Preview the square crop or keep the original framing.
                     </p>
                   </div>
-                  <div className="inline-flex rounded-xl border border-slate-700 bg-[#162235] p-1">
+                  <div className="inline-flex self-start rounded-xl border border-slate-700 bg-[#162235] p-1 sm:self-auto">
                     <button
                       className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
                         previewMode === PREVIEW_MODE_CROPPED
@@ -401,7 +421,7 @@ const ProductImageCropModal = ({
                 <div className="mt-4">
                   <ProductImage
                     alt={image.name}
-                    className="w-full rounded-[22px] border border-slate-700"
+                    className="product-crop-preview-image w-full rounded-2xl border border-slate-700 sm:rounded-[22px]"
                     imgStyle={{ backgroundColor }}
                     src={activePreviewSource}
                     style={{ backgroundColor }}
@@ -409,7 +429,7 @@ const ProductImageCropModal = ({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-700 bg-[#101a2d] p-4">
+              <div className="rounded-xl border border-slate-700 bg-[#101a2d] p-3 sm:rounded-2xl sm:p-4">
                 <p className="text-sm font-semibold text-white">Image Details</p>
                 <div className="mt-3 space-y-2 text-xs text-slate-400">
                   {details.map((detail) => (
@@ -428,10 +448,10 @@ const ProductImageCropModal = ({
             </div>
           </div>
 
-          <div className="product-crop-footer sticky bottom-0 z-20 border-t border-slate-700 bg-[#18243a]/95 px-5 py-4 backdrop-blur sm:px-4">
-            <div className="flex gap-3 sm:flex-col">
+          <div className="product-crop-footer sticky bottom-0 z-20 border-t border-slate-700 bg-[#18243a]/95 px-4 py-3 backdrop-blur sm:px-4 sm:py-4">
+            <div className="product-crop-actions flex flex-col gap-2 sm:flex-col sm:gap-3">
               <button
-                className="flex-1 rounded-xl border border-slate-600 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-[#22324f] disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-[#22324f] disabled:cursor-not-allowed disabled:opacity-60 sm:py-3"
                 disabled={Boolean(submitMode)}
                 onClick={onCancel}
                 type="button"
@@ -439,7 +459,7 @@ const ProductImageCropModal = ({
                 Cancel
               </button>
               <button
-                className="flex-1 rounded-xl border border-slate-500 bg-[#22324f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2b3f61] disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-xl border border-slate-500 bg-[#22324f] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2b3f61] disabled:cursor-not-allowed disabled:opacity-60 sm:py-3"
                 disabled={Boolean(submitMode) || !image?.file}
                 onClick={handleSkip}
                 type="button"
@@ -449,7 +469,7 @@ const ProductImageCropModal = ({
                   : "Skip & Use Original"}
               </button>
               <button
-                className="flex-1 rounded-xl bg-[#ff7a1a] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#ea680a] disabled:cursor-not-allowed disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-xl bg-[#ff7a1a] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#ea680a] disabled:cursor-not-allowed disabled:opacity-60 sm:py-3"
                 disabled={Boolean(submitMode) || !croppedAreaPixels}
                 onClick={handleSave}
                 type="button"
