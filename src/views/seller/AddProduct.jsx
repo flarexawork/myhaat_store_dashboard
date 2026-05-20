@@ -208,6 +208,7 @@ const AddProduct = () => {
         brand: "",
         stock: "",
       });
+      setContent("");
       revokeProductImagePreviews(imageShowRef.current);
       imageShowRef.current = [];
       setImageShow([]);
@@ -498,7 +499,7 @@ const AddProduct = () => {
                     value={content}
                     tabIndex={1}
                     onBlur={(newContent) => setContent(newContent)}
-                    onChange={() => {}}
+                    onChange={(newContent) => setContent(newContent)}
                   />
                 </div>
               </div>

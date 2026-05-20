@@ -21,8 +21,12 @@ const getDefaultCropAreaSize = () => {
     return 320;
   }
 
-  const viewportWidth = Math.floor(window.visualViewport?.width || window.innerWidth);
-  const viewportHeight = Math.floor(window.visualViewport?.height || window.innerHeight);
+  const viewportWidth = Math.floor(
+    window.visualViewport?.width || window.innerWidth,
+  );
+  const viewportHeight = Math.floor(
+    window.visualViewport?.height || window.innerHeight,
+  );
 
   if (viewportWidth < 640) {
     const widthLimitedSize = viewportWidth - 40;
@@ -48,7 +52,12 @@ const getDefaultCropAreaSize = () => {
 };
 
 const getDynamicMinZoom = (cropSize, mediaSize) => {
-  if (!cropSize?.width || !cropSize?.height || !mediaSize?.width || !mediaSize?.height) {
+  if (
+    !cropSize?.width ||
+    !cropSize?.height ||
+    !mediaSize?.width ||
+    !mediaSize?.height
+  ) {
     return 1;
   }
 
@@ -79,6 +88,15 @@ const ProductImageCropModal = ({
   const [cropAreaSize, setCropAreaSize] = useState(getDefaultCropAreaSize);
   const [cropSize, setCropSize] = useState(null);
   const [mediaSize, setMediaSize] = useState(null);
+  const [availableCanvasMaxHeight, setAvailableCanvasMaxHeight] = useState(
+    () => {
+      if (typeof window === "undefined") return 420;
+      const panelMax = Math.floor((window.innerHeight || 800) * 0.92);
+      const defaultHeader = 84;
+      const defaultFooter = 120;
+      return Math.max(160, panelMax - defaultHeader - defaultFooter);
+    },
+  );
   const previewUrlRef = useRef("");
   const hasInitializedZoomRef = useRef(false);
 
@@ -108,6 +126,31 @@ const ProductImageCropModal = ({
     return () => {
       window.removeEventListener("resize", handleResize);
       visualViewport?.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    const recalcAvailableHeight = () => {
+      if (typeof window === "undefined") return;
+      const panelMax = Math.floor((window.innerHeight || 800) * 0.92);
+      const headerEl = document.querySelector(".product-crop-header");
+      const footerEl = document.querySelector(".product-crop-footer");
+      const headerH = headerEl ? headerEl.offsetHeight : 84;
+      const footerH = footerEl ? footerEl.offsetHeight : 120;
+      const extraPad = 24; // spacing / paddings inside panel
+      const available = Math.max(160, panelMax - headerH - footerH - extraPad);
+      setAvailableCanvasMaxHeight(available);
+    };
+
+    recalcAvailableHeight();
+    window.addEventListener("resize", recalcAvailableHeight);
+    window.visualViewport?.addEventListener("resize", recalcAvailableHeight);
+    return () => {
+      window.removeEventListener("resize", recalcAvailableHeight);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        recalcAvailableHeight,
+      );
     };
   }, []);
 
@@ -258,8 +301,21 @@ const ProductImageCropModal = ({
 
   return (
     <div className="product-crop-modal fixed inset-0 z-[99999] bg-black/80">
+      <style>{`
+        /* Hide native scrollbar by default, show thin custom scrollbar on hover */
+        .scrollbar-hover {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+        .scrollbar-hover::-webkit-scrollbar {
+          width: 0;
+          height: 0;
+        }
+
+        }
+      `}</style>
       <div className="product-crop-shell flex min-h-screen w-full items-stretch justify-center sm:items-center sm:p-4 lg:p-6">
-        <div className="product-crop-panel flex min-h-screen w-full flex-col overflow-hidden bg-[#18243a] text-[#d0d2d6] sm:min-h-0 sm:max-h-[92vh] sm:max-w-[720px] sm:rounded-[28px] sm:border sm:border-slate-700 sm:shadow-2xl">
+        <div className="product-crop-panel flex min-h-0 w-full flex-col overflow-hidden bg-[#18243a] text-[#d0d2d6] max-h-[90vh] sm:min-h-0 sm:max-h-[92vh] sm:max-w-[720px] sm:rounded-[28px] sm:border sm:border-slate-700 sm:shadow-2xl">
           <div className="product-crop-header sticky top-0 z-20 border-b border-slate-700 bg-[#18243a]/95 px-4 py-3 backdrop-blur sm:px-4 sm:py-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -284,14 +340,14 @@ const ProductImageCropModal = ({
             </div>
           </div>
 
-          <div className="product-crop-body grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_260px]">
-            <div className="product-crop-editor min-h-0 border-b border-slate-700 p-4 sm:px-4 sm:py-4 lg:border-b-0 lg:border-r lg:p-4">
+          <div className="product-crop-body grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
+            <div className="product-crop-editor min-h-0 border-b border-slate-700 p-4 sm:px-4 sm:py-4 lg:border-b-0 lg:border-r lg:p-4 flex-1 min-w-0 overflow-y-auto ">
               <div
                 className="product-crop-canvas relative mx-auto flex w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-700 sm:rounded-[24px]"
                 style={{
                   aspectRatio: "1 / 1",
                   maxWidth: `min(100%, ${cropAreaSize}px)`,
-                  maxHeight: "70vh",
+                  maxHeight: `${Math.min(cropAreaSize, availableCanvasMaxHeight)}px`,
                   backgroundColor,
                 }}
               >
@@ -356,7 +412,13 @@ const ProductImageCropModal = ({
                     max={MAX_ZOOM}
                     min={minZoom}
                     onChange={(event) =>
-                      setZoom(clampValue(Number(event.target.value), minZoom, MAX_ZOOM))
+                      setZoom(
+                        clampValue(
+                          Number(event.target.value),
+                          minZoom,
+                          MAX_ZOOM,
+                        ),
+                      )
                     }
                     step={0.01}
                     type="range"
@@ -377,12 +439,14 @@ const ProductImageCropModal = ({
               </div>
             </div>
 
-            <div className="product-crop-side min-h-0 space-y-3 overflow-y-auto p-4 pb-5 sm:space-y-4 sm:px-4 sm:pb-24 sm:pt-4 lg:p-4 lg:pb-4">
+            <div className="product-crop-side min-h-0 space-y-3 overflow-y-auto p-4 pb-5 sm:space-y-4 sm:px-4 sm:pb-24 sm:pt-4 lg:p-4 lg:pb-4 scrollbar-hover min-w-0 w-full lg:min-w-[260px] lg:w-[320px]">
               <div className="rounded-xl border border-slate-700 bg-[#101a2d] p-3 sm:rounded-2xl sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-white">Live Preview</p>
-                    <p className="mt-1 text-xs text-slate-400">
+                  <div className="min-w-0 flex-1 w-full">
+                    <p className="text-sm font-semibold text-white">
+                      Live Preview
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400 min-w-0 w-full break-words">
                       Preview the square crop or keep the original framing.
                     </p>
                   </div>
@@ -421,7 +485,7 @@ const ProductImageCropModal = ({
                 <div className="mt-4">
                   <ProductImage
                     alt={image.name}
-                    className="product-crop-preview-image w-full rounded-2xl border border-slate-700 sm:rounded-[22px]"
+                    className="product-crop-preview-image w-full max-w-[240px] mx-auto lg:mx-0 lg:max-w-none rounded-2xl border border-slate-700 sm:rounded-[22px]"
                     imgStyle={{ backgroundColor }}
                     src={activePreviewSource}
                     style={{ backgroundColor }}
@@ -430,7 +494,9 @@ const ProductImageCropModal = ({
               </div>
 
               <div className="rounded-xl border border-slate-700 bg-[#101a2d] p-3 sm:rounded-2xl sm:p-4">
-                <p className="text-sm font-semibold text-white">Image Details</p>
+                <p className="text-sm font-semibold text-white">
+                  Image Details
+                </p>
                 <div className="mt-3 space-y-2 text-xs text-slate-400">
                   {details.map((detail) => (
                     <p key={detail}>{detail}</p>
@@ -474,7 +540,9 @@ const ProductImageCropModal = ({
                 onClick={handleSave}
                 type="button"
               >
-                {submitMode === PREVIEW_MODE_CROPPED ? "Saving..." : "Crop & Save"}
+                {submitMode === PREVIEW_MODE_CROPPED
+                  ? "Saving..."
+                  : "Crop & Save"}
               </button>
             </div>
           </div>
