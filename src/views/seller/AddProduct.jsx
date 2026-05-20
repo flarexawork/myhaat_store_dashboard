@@ -137,7 +137,9 @@ const AddProduct = () => {
   };
 
   const removeImage = (i) => {
-    setImages((currentImages) => currentImages.filter((_, index) => index !== i));
+    setImages((currentImages) =>
+      currentImages.filter((_, index) => index !== i),
+    );
     setImageShow((currentImages) => {
       revokeProductImagePreview(currentImages[i]);
       return currentImages.filter((_, index) => index !== i);
@@ -152,23 +154,23 @@ const AddProduct = () => {
     e.preventDefault();
 
     if (images.length === 0) {
-      toast.error('At least 1 product image is required');
+      toast.error("At least 1 product image is required");
       return;
     }
     if (!state.name.trim()) {
-      toast.error('Product name is required');
+      toast.error("Product name is required");
       return;
     }
     if (!category) {
-      toast.error('Please select a category');
+      toast.error("Please select a category");
       return;
     }
     if (!state.price || Number(state.price) <= 0) {
-      toast.error('Price must be greater than 0');
+      toast.error("Price must be greater than 0");
       return;
     }
     if (!state.stock || Number(state.stock) < 0) {
-      toast.error('Stock is required');
+      toast.error("Stock is required");
       return;
     }
 
@@ -406,7 +408,9 @@ const AddProduct = () => {
 
                     <div
                       className={`absolute top-[101%] left-0 z-20 bg-slate-800 w-full rounded-md border border-slate-700 origin-top transition-all ${
-                        cateShow ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
+                        cateShow
+                          ? "scale-100 opacity-100"
+                          : "scale-95 opacity-0 pointer-events-none"
                       }`}
                     >
                       <div className="w-full px-3 py-3 border-b border-slate-700">
@@ -424,7 +428,9 @@ const AddProduct = () => {
                           <span
                             key={c._id || c.name}
                             className={`px-4 py-2 hover:bg-indigo-500 hover:text-white w-full cursor-pointer block ${
-                              category === c.name ? "bg-indigo-500 text-white" : ""
+                              category === c.name
+                                ? "bg-indigo-500 text-white"
+                                : ""
                             }`}
                             onClick={() => {
                               setCateShow(false);
@@ -515,10 +521,12 @@ const AddProduct = () => {
                     <span className="text-slate-400">Approval:</span> pending
                   </p>
                   <p>
-                    <span className="text-slate-400">Images:</span> {imageShow.length}
+                    <span className="text-slate-400">Images:</span>{" "}
+                    {imageShow.length}
                   </p>
                   <p>
-                    <span className="text-slate-400">Category:</span> {category || "N/A"}
+                    <span className="text-slate-400">Category:</span>{" "}
+                    {category || "N/A"}
                   </p>
                 </div>
               </div>
@@ -534,8 +542,8 @@ const AddProduct = () => {
 
                 {imageWarningCount > 0 && (
                   <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                    {imageWarningCount} image(s) need careful framing before they are
-                    saved as square product images.
+                    {imageWarningCount} image(s) need careful framing before
+                    they are saved as square product images.
                   </div>
                 )}
 
@@ -578,10 +586,13 @@ const AddProduct = () => {
                         <IoCloseSharp />
                       </span>
                       <div className="space-y-1 border-t border-slate-700 bg-[#162235] p-2">
-                        <p className="truncate text-xs text-slate-300">{img.name}</p>
+                        <p className="truncate text-xs text-slate-300">
+                          {img.name}
+                        </p>
                         {img.originalWidth && img.originalHeight && (
                           <p className="text-[11px] text-slate-400">
-                            Original: {img.originalWidth} x {img.originalHeight}px
+                            Original: {img.originalWidth} x {img.originalHeight}
+                            px
                           </p>
                         )}
                         {img.outputWidth && img.outputHeight && (
@@ -590,10 +601,16 @@ const AddProduct = () => {
                           </p>
                         )}
                         <p className="text-[11px] text-slate-400">
-                          Mode: {img.mode === "cropped" ? "Square crop" : "Original fit"}
+                          Mode:{" "}
+                          {img.mode === "cropped"
+                            ? "Square crop"
+                            : "Original fit"}
                         </p>
                         {img.warnings?.map((warning) => (
-                          <p key={`${img.id}-${warning}`} className="text-[11px] text-amber-300">
+                          <p
+                            key={`${img.id}-${warning}`}
+                            className="text-[11px] text-amber-300"
+                          >
                             {warning}
                           </p>
                         ))}
