@@ -8,7 +8,7 @@ import { BsImage } from 'react-icons/bs'
 import toast from 'react-hot-toast'
 import { useSelector, useDispatch } from 'react-redux'
 import Search from '../components/Search'
-import { categoryAdd, categoryDelete, categoryUpdate, messageClear, get_category } from '../../store/Reducers/categoryReducer'
+import { categoryAdd, categoryDelete, categoryUpdate, messageClear, get_category, get_category_variations, update_category_variations } from '../../store/Reducers/categoryReducer'
 
 const initialState = {
     name: '',
@@ -27,6 +27,7 @@ const Category = () => {
     const [editingCategoryId, setEditingCategoryId] = useState('')
     const [deleteTarget, setDeleteTarget] = useState(null)
     const [state, setState] = useState(initialState)
+    const [variationDrafts, setVariationDrafts] = useState([])
 
     const changeSearchValue = (value) => {
         setSearchValue(value)
@@ -43,6 +44,7 @@ const Category = () => {
         setImage('')
         setIsEditMode(false)
         setEditingCategoryId('')
+        setVariationDrafts([])
     }
 
     const imageHandle = (e) => {
@@ -95,6 +97,87 @@ const Category = () => {
         })
         setImage(category.image)
         setShow(true)
+        dispatch(get_category_variations(category._id))
+    }
+
+    const addVariationDraft = () => {
+        setVariationDrafts(current => [
+            ...current,
+            {
+                name: '',
+                label: '',
+                isRequired: true,
+                isActive: true,
+                options: [{ label: '', value: '', group: '', isActive: true }]
+            }
+        ])
+    }
+
+    const updateVariationDraft = (index, key, value) => {
+        setVariationDrafts(current => current.map((variation, itemIndex) => itemIndex === index ? {
+            ...variation,
+            [key]: value
+        } : variation))
+    }
+
+    const removeVariationDraft = (index) => {
+        setVariationDrafts(current => current.filter((_, itemIndex) => itemIndex !== index))
+    }
+
+    const addOptionDraft = (variationIndex) => {
+        setVariationDrafts(current => current.map((variation, itemIndex) => itemIndex === variationIndex ? {
+            ...variation,
+            options: [
+                ...(variation.options || []),
+                { label: '', value: '', group: '', isActive: true }
+            ]
+        } : variation))
+    }
+
+    const updateOptionDraft = (variationIndex, optionIndex, key, value) => {
+        setVariationDrafts(current => current.map((variation, itemIndex) => {
+            if (itemIndex !== variationIndex) return variation
+
+            return {
+                ...variation,
+                options: (variation.options || []).map((option, currentOptionIndex) => currentOptionIndex === optionIndex ? {
+                    ...option,
+                    [key]: value
+                } : option)
+            }
+        }))
+    }
+
+    const removeOptionDraft = (variationIndex, optionIndex) => {
+        setVariationDrafts(current => current.map((variation, itemIndex) => itemIndex === variationIndex ? {
+            ...variation,
+            options: (variation.options || []).filter((_, currentOptionIndex) => currentOptionIndex !== optionIndex)
+        } : variation))
+    }
+
+    const saveVariationConfig = () => {
+        if (!editingCategoryId) return
+
+        const cleaned = variationDrafts
+            .map((variation) => ({
+                ...variation,
+                name: variation.name.trim(),
+                label: (variation.label || variation.name).trim(),
+                options: (variation.options || [])
+                    .map((option) => ({
+                        ...option,
+                        label: option.label.trim(),
+                        value: (option.value || option.label).trim(),
+                        group: option.group.trim()
+                    }))
+                    .filter((option) => option.label && option.value)
+            }))
+            .filter((variation) => variation.name && variation.options.length)
+
+        dispatch(update_category_variations({
+            categoryId: editingCategoryId,
+            variations: cleaned
+        }))
     }
 
     const deleteCategoryHandler = () => {
@@ -145,6 +228,14 @@ const Category = () => {
             }
         }
     }, [imageShow])
+
+    const variationConfig = useSelector(state => state.category.variationConfig)
+
+    useEffect(() => {
+        if (isEditMode) {
+            setVariationDrafts(variationConfig?.variations || [])
+        }
+    }, [variationConfig, isEditMode])
 
     return (
         <div className='px-2 lg:px-7 pt-5'>
@@ -255,6 +346,53 @@ const Category = () => {
                                     }
                                 </div>
                             </form>
+                            {
+                                isEditMode && <div className='mt-5 border-t border-slate-700 pt-4'>
+                                    <div className='mb-3 flex items-center justify-between gap-2'>
+                                        <div>
+                                            <h2 className='text-base font-semibold text-[#d0d2d6]'>Variation Configuration</h2>
+                                            <p className='text-xs text-slate-400'>Define dynamic product options for this category.</p>
+                                        </div>
+                                        <button type='button' onClick={addVariationDraft} className='rounded-md bg-indigo-500 px-3 py-2 text-xs text-white'>Add Type</button>
+                                    </div>
+
+                                    <div className='space-y-4'>
+                                        {variationDrafts.map((variation, variationIndex) => (
+                                            <div key={variationIndex} className='rounded-md border border-slate-700 bg-[#1f2d44] p-3'>
+                                                <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+                                                    <input value={variation.name} onChange={(e) => updateVariationDraft(variationIndex, 'name', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Type name e.g. Size' />
+                                                    <input value={variation.label || ''} onChange={(e) => updateVariationDraft(variationIndex, 'label', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Label' />
+                                                </div>
+                                                <div className='mt-2 flex flex-wrap gap-3 text-xs'>
+                                                    <label className='flex items-center gap-2'>
+                                                        <input checked={variation.isRequired !== false} onChange={(e) => updateVariationDraft(variationIndex, 'isRequired', e.target.checked)} type='checkbox' />
+                                                        Required
+                                                    </label>
+                                                    <label className='flex items-center gap-2'>
+                                                        <input checked={variation.isActive !== false} onChange={(e) => updateVariationDraft(variationIndex, 'isActive', e.target.checked)} type='checkbox' />
+                                                        Enabled
+                                                    </label>
+                                                    <button type='button' onClick={() => removeVariationDraft(variationIndex)} className='text-red-300'>Remove Type</button>
+                                                </div>
+
+                                                <div className='mt-3 space-y-2'>
+                                                    {(variation.options || []).map((option, optionIndex) => (
+                                                        <div key={optionIndex} className='grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]'>
+                                                            <input value={option.label} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'label', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Option label' />
+                                                            <input value={option.value || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'value', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Value' />
+                                                            <input value={option.group || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'group', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Group optional' />
+                                                            <button type='button' onClick={() => removeOptionDraft(variationIndex, optionIndex)} className='rounded-md bg-red-500 px-3 py-2 text-white'>Delete</button>
+                                                        </div>
+                                                    ))}
+                                                    <button type='button' onClick={() => addOptionDraft(variationIndex)} className='rounded-md bg-slate-700 px-3 py-2 text-xs text-white'>Add Option</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {variationDrafts.length === 0 && <p className='text-sm text-slate-400'>No variations configured for this category.</p>}
+                                        <button type='button' onClick={saveVariationConfig} disabled={loader} className='w-full rounded-md bg-blue-500 px-4 py-2 text-white disabled:opacity-60'>Save Variation Configuration</button>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     </div>
                 </div>

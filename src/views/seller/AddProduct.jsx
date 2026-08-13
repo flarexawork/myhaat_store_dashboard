@@ -4,10 +4,11 @@ import { BsImages } from "react-icons/bs";
 import { IoCloseSharp } from "react-icons/io5";
 import { FiImage, FiPackage, FiPlusCircle } from "react-icons/fi";
 import { useSelector, useDispatch } from "react-redux";
+import axios from "axios";
 import toast from "react-hot-toast";
 import { PropagateLoader } from "react-spinners";
 import JoditEditor from "jodit-react";
-import { overrideStyle } from "../../utils/utils";
+import { api_url, overrideStyle } from "../../utils/utils";
 import ProductImage from "../../components/ProductImage";
 import ProductImageCropModal from "../../components/ProductImageCropModal";
 import { get_category } from "../../store/Reducers/categoryReducer";
@@ -21,6 +22,11 @@ import {
   revokeProductImagePreview,
   revokeProductImagePreviews,
 } from "../../utils/productImage";
+import {
+  buildSelectedProductVariations,
+  buildVariantCombinations,
+  parsePincodes,
+} from "../../utils/variationHelpers";
 
 const AddProduct = () => {
   const editor = useRef(null);
@@ -62,8 +68,13 @@ const AddProduct = () => {
 
   const [cateShow, setCateShow] = useState(false);
   const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [allCategory, setAllCategory] = useState([]);
   const [searchValue, setSearchValue] = useState("");
+  const [variationConfig, setVariationConfig] = useState({ variations: [] });
+  const [selectedOptions, setSelectedOptions] = useState({});
+  const [variantCombinations, setVariantCombinations] = useState([]);
+  const [pincodeText, setPincodeText] = useState("");
 
   const categorySearch = (e) => {
     const value = e.target.value;
@@ -150,6 +161,61 @@ const AddProduct = () => {
     setAllCategory(categorys);
   }, [categorys]);
 
+  useEffect(() => {
+    if (!categoryId) {
+      setVariationConfig({ variations: [] });
+      setSelectedOptions({});
+      setVariantCombinations([]);
+      return;
+    }
+
+    const loadConfig = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        const { data } = await axios.get(
+          `${api_url}/api/category/${categoryId}/variations`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        setVariationConfig(data.config || { variations: [] });
+        setSelectedOptions({});
+        setVariantCombinations([]);
+      } catch (error) {
+        toast.error("Unable to load category variations");
+      }
+    };
+
+    loadConfig();
+  }, [categoryId]);
+
+  const toggleOption = (variation, option) => {
+    setSelectedOptions((current) => {
+      const currentValues = current[variation.name] || [];
+      const nextValues = currentValues.includes(option.value)
+        ? currentValues.filter((value) => value !== option.value)
+        : [...currentValues, option.value];
+      const nextSelection = {
+        ...current,
+        [variation.name]: nextValues,
+      };
+      const selectedVariations = buildSelectedProductVariations(
+        variationConfig.variations || [],
+        nextSelection,
+      );
+      setVariantCombinations((existing) =>
+        buildVariantCombinations(selectedVariations, existing),
+      );
+      return nextSelection;
+    });
+  };
+
+  const updateCombination = (variantKey, key, value) => {
+    setVariantCombinations((current) =>
+      current.map((item) =>
+        item.variantKey === variantKey ? { ...item, [key]: value } : item,
+      ),
+    );
+  };
+
   const add = (e) => {
     e.preventDefault();
 
@@ -181,9 +247,20 @@ const AddProduct = () => {
     formData.append("price", state.price);
     formData.append("stock", state.stock);
     formData.append("category", category);
+    formData.append("categoryId", categoryId);
     formData.append("discount", state.discount);
     formData.append("shopName", userInfo?.shopInfo?.shopName);
     formData.append("brand", state.brand);
+    const selectedVariations = buildSelectedProductVariations(
+      variationConfig.variations || [],
+      selectedOptions,
+    );
+    formData.append("variations", JSON.stringify(selectedVariations));
+    formData.append(
+      "variantCombinations",
+      JSON.stringify(variantCombinations.filter((item) => item.isActive !== false)),
+    );
+    formData.append("deliveryPincodes", JSON.stringify(parsePincodes(pincodeText)));
     formData.append("imageBackground", getProductImageThemeBackground());
     for (let i = 0; i < images.length; i++) {
       formData.append("images", images[i]);
@@ -216,6 +293,10 @@ const AddProduct = () => {
       setImageShow([]);
       setImages([]);
       setCategory("");
+      setCategoryId("");
+      setSelectedOptions({});
+      setVariantCombinations([]);
+      setPincodeText("");
       if (shouldRedirect) {
         redirectTimer = setTimeout(() => {
           navigate("/seller/dashboard/products");
@@ -435,6 +516,7 @@ const AddProduct = () => {
                             onClick={() => {
                               setCateShow(false);
                               setCategory(c.name);
+                              setCategoryId(c._id);
                               setSearchValue("");
                               setAllCategory(categorys);
                             }}
@@ -493,6 +575,82 @@ const AddProduct = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-700 bg-[#1f2d44] p-4 md:p-5">
+                <h2 className="mb-4 text-[#d0d2d6] font-medium text-base">
+                  Variations
+                </h2>
+                {(variationConfig.variations || []).filter((v) => v.isActive !== false).length ? (
+                  <div className="space-y-4">
+                    {(variationConfig.variations || [])
+                      .filter((variation) => variation.isActive !== false)
+                      .map((variation) => (
+                        <div key={variation.name}>
+                          <p className="mb-2 text-sm text-slate-300">
+                            {variation.label || variation.name}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {(variation.options || [])
+                              .filter((option) => option.isActive !== false)
+                              .map((option) => {
+                                const active = (selectedOptions[variation.name] || []).includes(option.value);
+                                return (
+                                  <button
+                                    key={`${variation.name}-${option.value}`}
+                                    type="button"
+                                    onClick={() => toggleOption(variation, option)}
+                                    className={`rounded-md border px-3 py-2 text-sm ${
+                                      active
+                                        ? "border-indigo-500 bg-indigo-500 text-white"
+                                        : "border-slate-700 bg-[#283046] text-[#d0d2d6]"
+                                    }`}
+                                  >
+                                    {option.group ? `${option.group} - ` : ""}{option.label}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      ))}
+
+                    {variantCombinations.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-slate-300">Available combinations</p>
+                        {variantCombinations.map((combo) => (
+                          <div key={combo.variantKey} className="grid grid-cols-1 gap-2 rounded-md border border-slate-700 p-3 md:grid-cols-[1fr_100px_100px_80px]">
+                            <span className="text-sm text-slate-300">
+                              {combo.attributes.map((item) => item.optionLabel).join(" / ")}
+                            </span>
+                            <input className="rounded-md border border-slate-700 bg-[#283046] px-3 py-2 text-[#d0d2d6]" placeholder="Stock" value={combo.stock} onChange={(e) => updateCombination(combo.variantKey, "stock", e.target.value)} />
+                            <input className="rounded-md border border-slate-700 bg-[#283046] px-3 py-2 text-[#d0d2d6]" placeholder="Price" value={combo.price} onChange={(e) => updateCombination(combo.variantKey, "price", e.target.value)} />
+                            <label className="flex items-center gap-2 text-sm text-slate-300">
+                              <input checked={combo.isActive !== false} onChange={(e) => updateCombination(combo.variantKey, "isActive", e.target.checked)} type="checkbox" />
+                              Active
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No variations configured for this category.</p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-slate-700 bg-[#1f2d44] p-4 md:p-5">
+                <h2 className="mb-4 text-[#d0d2d6] font-medium text-base">
+                  Delivery Pincodes
+                </h2>
+                <textarea
+                  className="min-h-[96px] w-full rounded-md border border-slate-700 bg-[#283046] px-4 py-2 text-[#d0d2d6] outline-none focus:border-indigo-500"
+                  value={pincodeText}
+                  onChange={(e) => setPincodeText(e.target.value)}
+                  placeholder="Enter pincodes separated by comma, space, or new line"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Leave empty to keep delivery available by default for legacy-compatible products.
+                </p>
               </div>
 
               <div className="rounded-xl border border-slate-700 bg-[#1f2d44] p-4 md:p-5">

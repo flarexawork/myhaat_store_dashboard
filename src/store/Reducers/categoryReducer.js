@@ -82,6 +82,42 @@ export const categoryDelete = createAsyncThunk(
     }
 )
 
+export const get_category_variations = createAsyncThunk(
+    'category/get_category_variations',
+    async (categoryId, { rejectWithValue, fulfillWithValue, getState }) => {
+        const token = getState().auth.token
+        const config = {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+        try {
+            const { data } = await axios.get(`${api_url}/api/category/${categoryId}/variations`, config)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const update_category_variations = createAsyncThunk(
+    'category/update_category_variations',
+    async ({ categoryId, variations }, { rejectWithValue, fulfillWithValue, getState }) => {
+        const token = getState().auth.token
+        const config = {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+        try {
+            const { data } = await axios.put(`${api_url}/api/category/${categoryId}/variations`, { variations }, config)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response.data)
+        }
+    }
+)
+
 
 
 export const categoryReducer = createSlice({
@@ -92,7 +128,8 @@ export const categoryReducer = createSlice({
         loader: false,
         deleteLoaderId: '',
         categorys: [],
-        totalCategory: 0
+        totalCategory: 0,
+        variationConfig: { variations: [] }
     },
     reducers: {
         messageClear: (state, _) => {
@@ -145,6 +182,21 @@ export const categoryReducer = createSlice({
             state.successMessage = payload.message
             state.categorys = state.categorys.filter((item) => item._id !== payload.categoryId)
             state.totalCategory = Math.max(0, state.totalCategory - 1)
+        },
+        [get_category_variations.fulfilled]: (state, { payload }) => {
+            state.variationConfig = payload.config
+        },
+        [update_category_variations.pending]: (state, _) => {
+            state.loader = true
+        },
+        [update_category_variations.rejected]: (state, { payload }) => {
+            state.loader = false
+            state.errorMessage = payload?.error || payload?.message
+        },
+        [update_category_variations.fulfilled]: (state, { payload }) => {
+            state.loader = false
+            state.successMessage = payload.message
+            state.variationConfig = payload.config
         },
     }
 
