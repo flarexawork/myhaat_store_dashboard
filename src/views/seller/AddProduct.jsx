@@ -606,7 +606,7 @@ const AddProduct = () => {
                                         : "border-slate-700 bg-[#283046] text-[#d0d2d6]"
                                     }`}
                                   >
-                                    {option.group ? `${option.group} - ` : ""}{option.label}
+                                    {option.group ? `${option.group} - ` : ""}{option.label} - {option.value}
                                   </button>
                                 );
                               })}
@@ -620,7 +620,7 @@ const AddProduct = () => {
                         {variantCombinations.map((combo) => (
                           <div key={combo.variantKey} className="grid grid-cols-1 gap-2 rounded-md border border-slate-700 p-3 md:grid-cols-[1fr_100px_100px_80px]">
                             <span className="text-sm text-slate-300">
-                              {combo.attributes.map((item) => item.optionLabel).join(" / ")}
+                              {combo.attributes.map((item) => `${item.optionLabel || item.value} - ${item.value}`).join(" / ")}
                             </span>
                             <input className="rounded-md border border-slate-700 bg-[#283046] px-3 py-2 text-[#d0d2d6]" placeholder="Stock" value={combo.stock} onChange={(e) => updateCombination(combo.variantKey, "stock", e.target.value)} />
                             <input className="rounded-md border border-slate-700 bg-[#283046] px-3 py-2 text-[#d0d2d6]" placeholder="Price" value={combo.price} onChange={(e) => updateCombination(combo.variantKey, "price", e.target.value)} />

@@ -239,7 +239,7 @@ const Category = () => {
 
     return (
         <div className='px-2 lg:px-7 pt-5'>
-            <div className='flex lg:hidden justify-between items-center mb-5 p-4 bg-[#283046] rounded-md'>
+            <div className='flex xl:hidden justify-between items-center mb-5 p-4 bg-[#283046] rounded-md'>
                 <h1 className='text-[#d0d2d6] font-semibold text-lg'>Categorys</h1>
                 <button onClick={() => {
                     resetForm()
@@ -247,10 +247,10 @@ const Category = () => {
                 }} className='bg-indigo-500 shadow-lg hover:shadow-indigo-500/50 px-4 py-2 cursor-pointer text-white rounded-sm text-sm'>Add</button>
             </div>
             {
-                show && <div onClick={() => setShow(false)} className='fixed inset-0 z-[9998] bg-black/50 lg:hidden'></div>
+                show && <div onClick={() => setShow(false)} className='fixed inset-0 z-[9998] bg-black/50 xl:hidden'></div>
             }
             <div className='flex flex-wrap w-full'>
-                <div className='w-full lg:w-7/12'>
+                <div className='w-full xl:w-7/12'>
                     <div className='w-full p-4  bg-[#283046] rounded-md'>
                         <Search setParPage={changeParPage} setSearchValue={changeSearchValue} searchValue={searchValue} />
                         <div className='relative overflow-x-auto'>
@@ -306,15 +306,15 @@ const Category = () => {
                         }
                     </div>
                 </div>
-                <div className={`w-[320px] lg:w-5/12 translate-x-100 lg:relative lg:right-0 fixed ${show ? 'right-0' : '-right-[340px]'} z-[9999] top-0 transition-all duration-500`}>
-                    <div className='w-full pl-5'>
-                        <div className='bg-[#283046] h-screen lg:h-auto px-3 py-2 lg:rounded-md text-[#d0d2d6]'>
+                <div className={`fixed top-0 z-[9999] h-screen w-[min(100vw-16px,460px)] transition-all duration-500 xl:relative xl:right-0 xl:h-auto xl:w-5/12 ${show ? 'right-0' : '-right-[calc(100vw+16px)]'}`}>
+                    <div className='w-full pl-0 xl:pl-5'>
+                        <div className='h-screen overflow-y-auto bg-[#283046] px-3 py-3 text-[#d0d2d6] xl:h-auto xl:max-h-[calc(100vh-40px)] xl:rounded-md xl:px-4'>
                             <div className='flex justify-between items-center mb-4'>
                                 <div>
                                     <h1 className='text-[#d0d2d6] font-semibold text-xl'>{isEditMode ? 'Edit Category' : 'Add Category'}</h1>
                                     <p className='text-slate-400 text-sm mt-1'>{isEditMode ? 'Update the selected category details.' : 'Create a category for the dashboard and seller product forms.'}</p>
                                 </div>
-                                <div onClick={() => setShow(false)} className='block lg:hidden cursor-pointer'><GrClose className='text-[#d0d2d6]' /></div>
+                                <div onClick={() => setShow(false)} className='block xl:hidden cursor-pointer'><GrClose className='text-[#d0d2d6]' /></div>
                             </div>
                             <form onSubmit={submit_category}>
                                 <div className='flex flex-col w-full gap-1 mb-3'>
@@ -358,10 +358,10 @@ const Category = () => {
 
                                     <div className='space-y-4'>
                                         {variationDrafts.map((variation, variationIndex) => (
-                                            <div key={variationIndex} className='rounded-md border border-slate-700 bg-[#1f2d44] p-3'>
-                                                <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
-                                                    <input value={variation.name} onChange={(e) => updateVariationDraft(variationIndex, 'name', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Type name e.g. Size' />
-                                                    <input value={variation.label || ''} onChange={(e) => updateVariationDraft(variationIndex, 'label', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Label' />
+                                            <div key={variationIndex} className='min-w-0 rounded-md border border-slate-700 bg-[#1f2d44] p-3'>
+                                                <div className='grid min-w-0 grid-cols-1 gap-2 2xl:grid-cols-2'>
+                                                    <input value={variation.name} onChange={(e) => updateVariationDraft(variationIndex, 'name', e.target.value)} className='min-w-0 px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Type name e.g. Size' />
+                                                    <input value={variation.label || ''} onChange={(e) => updateVariationDraft(variationIndex, 'label', e.target.value)} className='min-w-0 px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Label' />
                                                 </div>
                                                 <div className='mt-2 flex flex-wrap gap-3 text-xs'>
                                                     <label className='flex items-center gap-2'>
@@ -377,11 +377,20 @@ const Category = () => {
 
                                                 <div className='mt-3 space-y-2'>
                                                     {(variation.options || []).map((option, optionIndex) => (
-                                                        <div key={optionIndex} className='grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]'>
-                                                            <input value={option.label} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'label', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Option label' />
-                                                            <input value={option.value || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'value', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Value' />
-                                                            <input value={option.group || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'group', e.target.value)} className='px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-[#d0d2d6]' placeholder='Group optional' />
-                                                            <button type='button' onClick={() => removeOptionDraft(variationIndex, optionIndex)} className='rounded-md bg-red-500 px-3 py-2 text-white'>Delete</button>
+                                                        <div key={optionIndex} className='grid min-w-0 grid-cols-1 gap-2 rounded-md border border-slate-700/70 bg-[#283046]/45 p-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]'>
+                                                            <label className='min-w-0 text-xs text-slate-400'>
+                                                                Option label
+                                                                <input value={option.label} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'label', e.target.value)} className='mt-1 w-full min-w-0 px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-sm text-[#d0d2d6]' placeholder='Option label' />
+                                                            </label>
+                                                            <label className='min-w-0 text-xs text-slate-400'>
+                                                                Value
+                                                                <input value={option.value || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'value', e.target.value)} className='mt-1 w-full min-w-0 px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-sm text-[#d0d2d6]' placeholder='Value' />
+                                                            </label>
+                                                            <label className='min-w-0 text-xs text-slate-400'>
+                                                                Group optional
+                                                                <input value={option.group || ''} onChange={(e) => updateOptionDraft(variationIndex, optionIndex, 'group', e.target.value)} className='mt-1 w-full min-w-0 px-3 py-2 focus:border-indigo-500 outline-none bg-[#283046] border border-slate-700 rounded-md text-sm text-[#d0d2d6]' placeholder='Group optional' />
+                                                            </label>
+                                                            <button type='button' onClick={() => removeOptionDraft(variationIndex, optionIndex)} className='h-10 rounded-md bg-red-500 px-3 py-2 text-sm text-white 2xl:self-end'>Delete</button>
                                                         </div>
                                                     ))}
                                                     <button type='button' onClick={() => addOptionDraft(variationIndex)} className='rounded-md bg-slate-700 px-3 py-2 text-xs text-white'>Add Option</button>
