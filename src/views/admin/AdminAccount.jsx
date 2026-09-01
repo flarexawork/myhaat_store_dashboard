@@ -34,6 +34,7 @@ const AdminAccount = () => {
     const [createAdminState, setCreateAdminState] = useState({
         name: '',
         email: '',
+        mobile: '',
         password: '',
         role: 'admin'
     })
@@ -69,6 +70,7 @@ const AdminAccount = () => {
                 setCreateAdminState({
                     name: '',
                     email: '',
+                    mobile: '',
                     password: '',
                     role: 'admin'
                 })
@@ -216,6 +218,10 @@ const AdminAccount = () => {
                                 <div className='flex flex-wrap gap-2'>
                                     <span className='text-slate-400'>Email:</span>
                                     <span className='text-[#d0d2d6]'>{userInfo?.email}</span>
+                                </div>
+                                <div className='flex flex-wrap gap-2'>
+                                    <span className='text-slate-400'>Mobile:</span>
+                                    <span className='text-[#d0d2d6]'>{userInfo?.mobile || 'Not set'}</span>
                                 </div>
                                 <div className='flex flex-wrap gap-2'>
                                     <span className='text-slate-400'>Admin role:</span>
@@ -379,6 +385,20 @@ const AdminAccount = () => {
                                         onChange={createAdminInputHandle}
                                         className='w-full px-4 py-2 outline-none border border-slate-700 bg-transparent rounded-md text-[#d0d2d6] focus:border-indigo-500'
                                         placeholder='Admin email'
+                                        required
+                                    />
+                                </div>
+
+                                <div className='flex flex-col gap-1'>
+                                    <label htmlFor='adminMobile'>Mobile Number</label>
+                                    <input
+                                        id='adminMobile'
+                                        name='mobile'
+                                        type='tel'
+                                        value={createAdminState.mobile}
+                                        onChange={createAdminInputHandle}
+                                        className='w-full px-4 py-2 outline-none border border-slate-700 bg-transparent rounded-md text-[#d0d2d6] focus:border-indigo-500'
+                                        placeholder='+919876543210'
                                         required
                                     />
                                 </div>

@@ -36,6 +36,9 @@ export const admin_login = createAsyncThunk(
     async (info, { rejectWithValue, fulfillWithValue }) => {
         try {
             const { data } = await axios.post(`${api_url}/api/admin-login`, info)
+            if (data?.requiresOtp) {
+                return fulfillWithValue(data)
+            }
             localStorage.setItem('accessToken', data.token)
             return fulfillWithValue(data)
         } catch (error) {
@@ -49,10 +52,50 @@ export const seller_login = createAsyncThunk(
     async (info, { rejectWithValue, fulfillWithValue }) => {
         try {
             const { data } = await axios.post(`${api_url}/api/seller-login`, info, { withCredentials: true })
+            if (data?.requiresOtp) {
+                return fulfillWithValue(data)
+            }
             localStorage.setItem('accessToken', data.token)
             return fulfillWithValue(data)
         } catch (error) {
             return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const verify_login_otp = createAsyncThunk(
+    'auth/verify_login_otp',
+    async ({ otp }, { rejectWithValue, fulfillWithValue, getState }) => {
+        try {
+            const { otpChallengeToken, otpRole } = getState().auth
+            const { data } = await axios.post(`${api_url}/api/auth/login-otp/verify`, {
+                challengeToken: otpChallengeToken,
+                otp,
+                role: otpRole
+            }, { withCredentials: true })
+            if (data?.requiresOtp) {
+                return rejectWithValue({ message: 'OTP verification is still required.' })
+            }
+            localStorage.setItem('accessToken', data.token)
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { message: 'Unable to verify OTP' })
+        }
+    }
+)
+
+export const retry_login_otp = createAsyncThunk(
+    'auth/retry_login_otp',
+    async (_, { rejectWithValue, fulfillWithValue, getState }) => {
+        try {
+            const { otpChallengeToken, otpRole } = getState().auth
+            const { data } = await axios.post(`${api_url}/api/auth/login-otp/retry`, {
+                challengeToken: otpChallengeToken,
+                role: otpRole
+            })
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { message: 'Unable to resend OTP' })
         }
     }
 )
@@ -106,6 +149,39 @@ export const seller_register = createAsyncThunk(
             return fulfillWithValue(data)
         } catch (error) {
             return rejectWithValue(error.response.data)
+        }
+    }
+)
+
+export const verify_signup_otp = createAsyncThunk(
+    'auth/verify_signup_otp',
+    async ({ otp }, { rejectWithValue, fulfillWithValue, getState }) => {
+        try {
+            const { signupOtpChallengeToken } = getState().auth
+            const { data } = await axios.post(`${api_url}/api/auth/signup-otp/verify`, {
+                challengeToken: signupOtpChallengeToken,
+                role: 'seller',
+                otp
+            })
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { message: 'Unable to verify signup OTP' })
+        }
+    }
+)
+
+export const retry_signup_otp = createAsyncThunk(
+    'auth/retry_signup_otp',
+    async (_, { rejectWithValue, fulfillWithValue, getState }) => {
+        try {
+            const { signupOtpChallengeToken } = getState().auth
+            const { data } = await axios.post(`${api_url}/api/auth/signup-otp/retry`, {
+                challengeToken: signupOtpChallengeToken,
+                role: 'seller'
+            })
+            return fulfillWithValue(data)
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { message: 'Unable to resend OTP' })
         }
     }
 )
@@ -297,6 +373,16 @@ export const authReducer = createSlice({
         restricted: false,
         requiresVerification: false,
         waitingApproval: false,
+        otpRequired: false,
+        otpChallengeToken: '',
+        otpMaskedIdentifier: '',
+        otpRole: '',
+        otpExpiresInSeconds: 0,
+        otpResendCooldownSeconds: 0,
+        signupOtpRequired: false,
+        signupOtpChallengeToken: '',
+        signupOtpMaskedIdentifier: '',
+        signupOtpResendCooldownSeconds: 0,
         role: returnRole(localStorage.getItem('accessToken')),
         token: localStorage.getItem('accessToken')
     },
@@ -318,8 +404,32 @@ export const authReducer = createSlice({
             state.restricted = false
             state.requiresVerification = false
             state.waitingApproval = false
+            state.otpRequired = false
+            state.otpChallengeToken = ''
+            state.otpMaskedIdentifier = ''
+            state.otpRole = ''
+            state.otpExpiresInSeconds = 0
+            state.otpResendCooldownSeconds = 0
+            state.signupOtpRequired = false
+            state.signupOtpChallengeToken = ''
+            state.signupOtpMaskedIdentifier = ''
+            state.signupOtpResendCooldownSeconds = 0
             state.role = ''
             state.token = ''
+        },
+        clearOtpChallenge: (state, _) => {
+            state.otpRequired = false
+            state.otpChallengeToken = ''
+            state.otpMaskedIdentifier = ''
+            state.otpRole = ''
+            state.otpExpiresInSeconds = 0
+            state.otpResendCooldownSeconds = 0
+        },
+        clearSignupOtpChallenge: (state, _) => {
+            state.signupOtpRequired = false
+            state.signupOtpChallengeToken = ''
+            state.signupOtpMaskedIdentifier = ''
+            state.signupOtpResendCooldownSeconds = 0
         }
     },
     extraReducers: {
@@ -332,9 +442,24 @@ export const authReducer = createSlice({
         },
         [admin_login.fulfilled]: (state, { payload }) => {
             state.loader = false
+            if (payload.requiresOtp) {
+                state.otpRequired = true
+                state.otpChallengeToken = payload.challengeToken || ''
+                state.otpMaskedIdentifier = payload.maskedIdentifier || ''
+                state.otpRole = payload.role || 'admin'
+                state.otpExpiresInSeconds = payload.expiresInSeconds || 0
+                state.otpResendCooldownSeconds = payload.resendCooldownSeconds || 0
+                state.token = ''
+                state.role = ''
+                return
+            }
             state.successMessage = payload.message
             state.token = payload.token
             state.role = returnRole(payload.token)
+            state.otpRequired = false
+            state.otpChallengeToken = ''
+            state.otpMaskedIdentifier = ''
+            state.otpRole = ''
         },
         [seller_login.pending]: (state, _) => {
             state.loader = true
@@ -346,6 +471,17 @@ export const authReducer = createSlice({
         },
         [seller_login.fulfilled]: (state, { payload }) => {
             state.loader = false
+            if (payload.requiresOtp) {
+                state.otpRequired = true
+                state.otpChallengeToken = payload.challengeToken || ''
+                state.otpMaskedIdentifier = payload.maskedIdentifier || ''
+                state.otpRole = payload.role || 'seller'
+                state.otpExpiresInSeconds = payload.expiresInSeconds || 0
+                state.otpResendCooldownSeconds = payload.resendCooldownSeconds || 0
+                state.token = ''
+                state.role = ''
+                return
+            }
             state.successMessage = payload.message
             state.token = payload.token
             state.role = returnRole(payload.token)
@@ -355,6 +491,50 @@ export const authReducer = createSlice({
             state.restricted = normalizeRestrictedState(payload)
             state.requiresVerification = Boolean(payload.requiresVerification)
             state.waitingApproval = Boolean(payload.waitingApproval)
+            state.otpRequired = false
+            state.otpChallengeToken = ''
+            state.otpMaskedIdentifier = ''
+            state.otpRole = ''
+        },
+        [verify_login_otp.pending]: (state) => {
+            state.loader = true
+            state.errorMessage = ''
+        },
+        [verify_login_otp.rejected]: (state, { payload }) => {
+            state.loader = false
+            state.errorMessage = payload?.error || payload?.message || 'Unable to verify OTP'
+        },
+        [verify_login_otp.fulfilled]: (state, { payload }) => {
+            state.loader = false
+            state.successMessage = payload.message || 'Login success'
+            state.token = payload.token
+            state.role = returnRole(payload.token)
+            state.verificationStatus = payload.verificationStatus || ''
+            state.accountStatus = normalizeAccountStatus(payload)
+            state.adminRemark = normalizeAdminRemark(payload)
+            state.restricted = normalizeRestrictedState(payload)
+            state.requiresVerification = Boolean(payload.requiresVerification)
+            state.waitingApproval = Boolean(payload.waitingApproval)
+            state.otpRequired = false
+            state.otpChallengeToken = ''
+            state.otpMaskedIdentifier = ''
+            state.otpRole = ''
+            state.otpExpiresInSeconds = 0
+            state.otpResendCooldownSeconds = 0
+        },
+        [retry_login_otp.pending]: (state) => {
+            state.loader = true
+            state.errorMessage = ''
+        },
+        [retry_login_otp.rejected]: (state, { payload }) => {
+            state.loader = false
+            state.errorMessage = payload?.error || payload?.message || 'Unable to resend OTP'
+        },
+        [retry_login_otp.fulfilled]: (state, { payload }) => {
+            state.loader = false
+            state.successMessage = payload?.message || 'OTP resent successfully'
+            state.otpMaskedIdentifier = payload?.maskedIdentifier || state.otpMaskedIdentifier
+            state.otpResendCooldownSeconds = payload?.resendCooldownSeconds || state.otpResendCooldownSeconds
         },
         [seller_register.pending]: (state, _) => {
             state.loader = true
@@ -365,7 +545,45 @@ export const authReducer = createSlice({
         },
         [seller_register.fulfilled]: (state, { payload }) => {
             state.loader = false
+            if (payload?.requiresOtp) {
+                state.successMessage = payload?.message || 'OTP sent successfully'
+                state.signupOtpRequired = true
+                state.signupOtpChallengeToken = payload.challengeToken || ''
+                state.signupOtpMaskedIdentifier = payload.maskedIdentifier || ''
+                state.signupOtpResendCooldownSeconds = payload.resendCooldownSeconds || 0
+                return
+            }
             state.successMessage = payload?.message || 'Registration successful. Please verify your email.'
+        },
+        [verify_signup_otp.pending]: (state) => {
+            state.loader = true
+            state.errorMessage = ''
+        },
+        [verify_signup_otp.rejected]: (state, { payload }) => {
+            state.loader = false
+            state.errorMessage = payload?.error || payload?.message || 'Unable to verify signup OTP'
+        },
+        [verify_signup_otp.fulfilled]: (state, { payload }) => {
+            state.loader = false
+            state.successMessage = payload?.message || 'Signup verified successfully. Please login.'
+            state.signupOtpRequired = false
+            state.signupOtpChallengeToken = ''
+            state.signupOtpMaskedIdentifier = ''
+            state.signupOtpResendCooldownSeconds = 0
+        },
+        [retry_signup_otp.pending]: (state) => {
+            state.loader = true
+            state.errorMessage = ''
+        },
+        [retry_signup_otp.rejected]: (state, { payload }) => {
+            state.loader = false
+            state.errorMessage = payload?.error || payload?.message || 'Unable to resend OTP'
+        },
+        [retry_signup_otp.fulfilled]: (state, { payload }) => {
+            state.loader = false
+            state.successMessage = payload?.message || 'OTP resent successfully'
+            state.signupOtpMaskedIdentifier = payload?.maskedIdentifier || state.signupOtpMaskedIdentifier
+            state.signupOtpResendCooldownSeconds = payload?.resendCooldownSeconds || state.signupOtpResendCooldownSeconds
         },
         [get_user_info.fulfilled]: (state, { payload }) => {
             state.loader = false
@@ -486,5 +704,5 @@ export const authReducer = createSlice({
     }
 
 })
-export const { messageClear, resetAuthState } = authReducer.actions
+export const { messageClear, resetAuthState, clearOtpChallenge, clearSignupOtpChallenge } = authReducer.actions
 export default authReducer.reducer

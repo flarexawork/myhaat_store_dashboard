@@ -11,14 +11,27 @@ import PhoneInput from 'react-phone-input-2'
 import 'react-phone-input-2/lib/style.css'
 
 import { overrideStyle } from '../../utils/utils'
-import { messageClear, seller_register } from '../../store/Reducers/authReducer'
+import {
+    clearSignupOtpChallenge,
+    messageClear,
+    retry_signup_otp,
+    seller_register,
+    verify_signup_otp
+} from '../../store/Reducers/authReducer'
 
 const Register = () => {
 
     const navigate = useNavigate()
     const dispatch = useDispatch()
 
-    const { loader, errorMessage, successMessage } = useSelector(state => state.auth)
+    const {
+        loader,
+        errorMessage,
+        successMessage,
+        signupOtpRequired,
+        signupOtpMaskedIdentifier,
+        signupOtpResendCooldownSeconds
+    } = useSelector(state => state.auth)
 
     // Keeping original setter name to avoid breaking your project
     const [state, setSatate] = useState({
@@ -28,6 +41,9 @@ const Register = () => {
         mobile: ''
     })
     const [showPassword, setShowPassword] = useState(false)
+    const [otp, setOtp] = useState('')
+    const [otpError, setOtpError] = useState('')
+    const [resendCooldown, setResendCooldown] = useState(0)
 
     const inputHandle = (e) => {
         setSatate({
@@ -49,19 +65,57 @@ const Register = () => {
         }))
     }
 
+    const verifyOtp = (e) => {
+        e.preventDefault()
+        const normalizedOtp = otp.replace(/\D/g, '')
+
+        if (!normalizedOtp) {
+            setOtpError('Enter the OTP to continue')
+            return
+        }
+
+        setOtpError('')
+        dispatch(verify_signup_otp({ otp: normalizedOtp }))
+    }
+
+    const resendOtp = () => {
+        if (resendCooldown > 0) return
+        dispatch(retry_signup_otp())
+    }
+
+    const changeDetails = () => {
+        setOtp('')
+        setOtpError('')
+        dispatch(clearSignupOtpChallenge())
+    }
+
+    useEffect(() => {
+        setResendCooldown(signupOtpResendCooldownSeconds || 0)
+    }, [signupOtpResendCooldownSeconds])
+
+    useEffect(() => {
+        if (resendCooldown <= 0) return undefined
+        const timer = setInterval(() => {
+            setResendCooldown((current) => (current > 0 ? current - 1 : 0))
+        }, 1000)
+
+        return () => clearInterval(timer)
+    }, [resendCooldown])
+
     useEffect(() => {
         if (successMessage) {
             toast.success(successMessage)
             dispatch(messageClear())
-            const query = new URLSearchParams({ email: state.email }).toString()
-            navigate(`/seller/verify-pending?${query}`)
+            if (!signupOtpRequired) {
+                navigate('/seller/login')
+            }
         }
 
         if (errorMessage) {
             toast.error(errorMessage)
             dispatch(messageClear())
         }
-    }, [successMessage, errorMessage, state.email, dispatch, navigate])
+    }, [successMessage, errorMessage, signupOtpRequired, dispatch, navigate])
 
     return (
         <div className='min-w-screen min-h-screen bg-[#161d31] flex justify-center items-center'>
@@ -70,6 +124,7 @@ const Register = () => {
                     <h2 className='text-xl mb-2 font-semibold'>Welcome to e-commerce</h2>
                     <p className='text-sm mb-4'>Register your account and start your business</p>
 
+                    {!signupOtpRequired ? (
                     <form onSubmit={submit}>
 
                         {/* Name */}
@@ -199,8 +254,67 @@ const Register = () => {
                                 <AiOutlineGithub />
                             </div>
                         </div>
-
                     </form>
+                    ) : (
+                        <form onSubmit={verifyOtp}>
+                            <div className='mb-4 rounded-md border border-slate-700 bg-[#222b40] p-3 text-sm'>
+                                OTP sent to <span className='font-semibold text-white'>{signupOtpMaskedIdentifier || 'your mobile number'}</span>
+                            </div>
+
+                            <div className='flex flex-col w-full gap-1 mb-3'>
+                                <label htmlFor='sellerSignupOtp'>OTP</label>
+                                <input
+                                    id='sellerSignupOtp'
+                                    value={otp}
+                                    onChange={(e) => {
+                                        setOtp(e.target.value.replace(/\D/g, ''))
+                                        setOtpError('')
+                                    }}
+                                    type='text'
+                                    inputMode='numeric'
+                                    autoComplete='one-time-code'
+                                    maxLength={8}
+                                    required
+                                    placeholder='Enter OTP'
+                                    className='w-full px-3 py-2 outline-none border border-slate-700 bg-transparent rounded-md text-[#d0d2d6] focus:border-indigo-500'
+                                />
+                            </div>
+
+                            {otpError ? (
+                                <div className='mb-4 rounded-md border border-amber-400 bg-amber-100 p-3 text-sm text-amber-900'>
+                                    {otpError}
+                                </div>
+                            ) : null}
+
+                            <button
+                                disabled={loader}
+                                className='bg-blue-500 w-full hover:shadow-blue-500/20 hover:shadow-lg text-white rounded-md px-7 py-2 mb-3'
+                            >
+                                {
+                                    loader
+                                        ? <PropagateLoader color='#fff' cssOverride={overrideStyle} />
+                                        : 'Verify & Create Account'
+                                }
+                            </button>
+
+                            <button
+                                type='button'
+                                onClick={resendOtp}
+                                disabled={loader || resendCooldown > 0}
+                                className='w-full rounded-md border border-slate-700 px-7 py-2 mb-3 font-semibold text-[#d0d2d6] disabled:cursor-not-allowed disabled:opacity-60'
+                            >
+                                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+                            </button>
+
+                            <button
+                                type='button'
+                                onClick={changeDetails}
+                                className='w-full text-sm font-semibold text-blue-400'
+                            >
+                                Change signup details
+                            </button>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>

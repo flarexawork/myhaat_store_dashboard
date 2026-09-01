@@ -12,13 +12,25 @@ import "react-phone-input-2/lib/style.css";
 import axios from "axios";
 
 import { api_url, overrideStyle } from "../../utils/utils";
-import { messageClear, seller_login } from "../../store/Reducers/authReducer";
+import {
+  clearOtpChallenge,
+  messageClear,
+  retry_login_otp,
+  seller_login,
+  verify_login_otp,
+} from "../../store/Reducers/authReducer";
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loader, errorMessage } = useSelector((state) => state.auth);
+  const {
+    loader,
+    errorMessage,
+    otpRequired,
+    otpMaskedIdentifier,
+    otpResendCooldownSeconds,
+  } = useSelector((state) => state.auth);
 
   const [loginType, setLoginType] = useState("email");
 
@@ -32,6 +44,9 @@ const Login = () => {
   const [resendSuccess, setResendSuccess] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [otpCooldown, setOtpCooldown] = useState(0);
 
   const isUnverifiedError = (message = "") => /verify your email/i.test(message);
 
@@ -49,6 +64,12 @@ const Login = () => {
           password: state.password,
         }),
       ).unwrap();
+
+      if (response.requiresOtp) {
+        setOtp("");
+        setOtpError("");
+        return;
+      }
 
       if (response.requiresVerification) {
         navigate("/seller/verification");
@@ -73,6 +94,63 @@ const Login = () => {
     } catch (_) {
       // rejected state is handled in the error effect
     }
+  };
+
+  const completeLogin = (response) => {
+    if (response.requiresVerification) {
+      navigate("/seller/verification");
+      return;
+    }
+
+    if (response.accountStatus === "inactive" || response.restricted) {
+      setVerificationAlert("Your account is deactivated");
+      navigate("/seller/verification");
+      return;
+    }
+
+    if (response.waitingApproval) {
+      setVerificationAlert("Your account is under admin review");
+      navigate("/seller/account-pending");
+      return;
+    }
+
+    toast.success(response.message || "Login success");
+    dispatch(messageClear());
+    navigate("/");
+  };
+
+  const submitOtp = async (e) => {
+    e.preventDefault();
+    const normalizedOtp = otp.replace(/\D/g, "");
+
+    if (!normalizedOtp) {
+      setOtpError("Enter the OTP to continue");
+      return;
+    }
+
+    try {
+      setOtpError("");
+      const response = await dispatch(verify_login_otp({ otp: normalizedOtp })).unwrap();
+      completeLogin(response);
+    } catch (_) {
+      // rejected state is handled in the error effect
+    }
+  };
+
+  const resendOtp = async () => {
+    if (otpCooldown > 0) return;
+
+    try {
+      await dispatch(retry_login_otp()).unwrap();
+    } catch (_) {
+      // rejected state is handled in the error effect
+    }
+  };
+
+  const changeCredentials = () => {
+    setOtp("");
+    setOtpError("");
+    dispatch(clearOtpChallenge());
   };
 
   const resendVerificationEmail = async () => {
@@ -100,6 +178,19 @@ const Login = () => {
       setResendLoading(false);
     }
   };
+
+  useEffect(() => {
+    setOtpCooldown(otpResendCooldownSeconds || 0);
+  }, [otpResendCooldownSeconds]);
+
+  useEffect(() => {
+    if (otpCooldown <= 0) return undefined;
+    const timer = setInterval(() => {
+      setOtpCooldown((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return undefined;
@@ -150,6 +241,7 @@ const Login = () => {
             </button>
           </div>
 
+          {!otpRequired ? (
           <form onSubmit={submit}>
             {/* Email */}
             {loginType === "email" && (
@@ -283,6 +375,69 @@ const Login = () => {
               </div>
             </div>
           </form>
+          ) : (
+            <form onSubmit={submitOtp}>
+              <div className="mb-4 rounded-md border border-slate-700 bg-[#222b40] p-3 text-sm">
+                OTP sent to{" "}
+                <span className="font-semibold text-white">
+                  {otpMaskedIdentifier || "your registered contact"}
+                </span>
+              </div>
+
+              <div className="flex flex-col w-full gap-1 mb-3">
+                <label htmlFor="sellerOtp">OTP</label>
+                <input
+                  id="sellerOtp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  value={otp}
+                  onChange={(e) => {
+                    setOtp(e.target.value.replace(/\D/g, ""));
+                    setOtpError("");
+                  }}
+                  required
+                  placeholder="Enter OTP"
+                  className="px-3 py-2 outline-none border border-slate-700 bg-transparent rounded-md focus:border-indigo-500"
+                />
+              </div>
+
+              {otpError && (
+                <div className="mb-4 rounded-md border border-amber-400 bg-amber-100 p-3 text-sm text-amber-900">
+                  {otpError}
+                </div>
+              )}
+
+              <button
+                disabled={loader}
+                className="bg-blue-500 w-full hover:shadow-blue-500/20 hover:shadow-lg text-white rounded-md px-7 py-2 mb-3"
+              >
+                {loader ? (
+                  <PropagateLoader color="#fff" cssOverride={overrideStyle} />
+                ) : (
+                  "Verify OTP"
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={resendOtp}
+                disabled={loader || otpCooldown > 0}
+                className="w-full rounded-md border border-slate-700 px-7 py-2 mb-3 font-semibold text-[#d0d2d6] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {otpCooldown > 0 ? `Resend OTP in ${otpCooldown}s` : "Resend OTP"}
+              </button>
+
+              <button
+                type="button"
+                onClick={changeCredentials}
+                className="w-full text-sm font-semibold text-blue-400"
+              >
+                Change login details
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
