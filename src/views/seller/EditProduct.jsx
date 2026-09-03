@@ -182,6 +182,20 @@ const EditProduct = () => {
   }, [product]);
 
   useEffect(() => {
+    if (categoryId || !category || !categorys.length) {
+      return;
+    }
+
+    const normalizedName = String(category || "").trim().toLowerCase();
+    const matchedCategory = categorys.find(
+      (item) => String(item.name || "").trim().toLowerCase() === normalizedName,
+    );
+    if (matchedCategory?._id) {
+      setCategoryId(matchedCategory._id);
+    }
+  }, [category, categoryId, categorys]);
+
+  useEffect(() => {
     if (!categoryId) {
       setVariationConfig({ variations: [] });
       return;
@@ -202,6 +216,25 @@ const EditProduct = () => {
 
     loadConfig();
   }, [categoryId]);
+
+  useEffect(() => {
+    const configVariations = variationConfig.variations || [];
+    if (!configVariations.length || !Object.keys(selectedOptions).length) {
+      return;
+    }
+
+    const selectedVariations = buildSelectedProductVariations(
+      configVariations,
+      selectedOptions,
+    );
+
+    setVariantCombinations((existing) =>
+      buildVariantCombinations(
+        selectedVariations,
+        existing.length ? existing : product?.variantCombinations || [],
+      ),
+    );
+  }, [variationConfig, selectedOptions, product?.variantCombinations]);
 
   const toggleOption = (variation, option) => {
     if (isApproved) return;
